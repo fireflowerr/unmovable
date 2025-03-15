@@ -14,16 +14,36 @@ repositories {
 }
 
 def runeLiteVersion = 'latest.release'
+def lombokVersion = '1.18.30'
+def junitVersion = '5.12.1'
+def mockitoVersion = '5.16.0'
 
 dependencies {
-	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
+	compileOnly "net.runelite:client:$runeLiteVersion"
 
-	compileOnly 'org.projectlombok:lombok:1.18.30'
-	annotationProcessor 'org.projectlombok:lombok:1.18.30'
+	compileOnly "org.projectlombok:lombok:$lombokVersion"
+	annotationProcessor "org.projectlombok:lombok:$lombokVersion"
 
-	testImplementation 'junit:junit:4.12'
-	testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
-	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
+	// https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine
+	testImplementation "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
+
+	// https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
+	testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
+
+	// https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-params
+	testImplementation "org.junit.jupiter:junit-jupiter-params:$junitVersion"
+
+	// https://mvnrepository.com/artifact/org.junit.platform/junit-platform-launcher
+	testImplementation 'org.junit.platform:junit-platform-launcher:1.12.1'
+
+	// https://mvnrepository.com/artifact/org.mockito/mockito-core
+	testImplementation "org.mockito:mockito-core:$mockitoVersion"
+
+	// https://mvnrepository.com/artifact/org.mockito/mockito-junit-jupiter
+	testImplementation "org.mockito:mockito-junit-jupiter:$mockitoVersion"
+
+	testImplementation "net.runelite:client:$runeLiteVersion"
+	testImplementation "net.runelite:jshell:$runeLiteVersion"
 }
 
 group = 'net.fireflowerr'
@@ -37,7 +57,7 @@ tasks.withType(JavaCompile).configureEach {
 tasks.register('shadowJar', Jar) {
 	dependsOn configurations.testRuntimeClasspath
 	manifest {
-		attributes('Main-Class': 'net.fireflowerr.UnmovablePluginTest', 'Multi-Release': true)
+		attributes('Main-Class': 'net.fireflowerr.UnmovablePluginTestLauncher', 'Multi-Release': true)
 	}
 
 	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -58,4 +78,13 @@ tasks.register('shadowJar', Jar) {
 	group = BasePlugin.BUILD_GROUP
 	archiveClassifier.set('shadow')
 	archiveFileName.set("${rootProject.name}-${project.version}-all.jar")
+}
+
+tasks.register('launch', JavaExec) {
+	classpath = files(tasks.shadowJar)
+	jvmArgs = ['-ea']
+}
+
+test {
+	useJUnitPlatform()
 }

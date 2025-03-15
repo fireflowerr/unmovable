@@ -22,8 +22,12 @@ import javax.inject.Inject;
 )
 public class UnmovablePlugin extends Plugin
 {
-	@Inject
 	private Client client;
+
+	@Inject
+	public void setClient(Client client) {
+		this.client = client;
+	}
 
 	/**
 	 * Removes walking from left-click menu if shift is not pressed.
@@ -46,7 +50,7 @@ public class UnmovablePlugin extends Plugin
 			return;
 		}
 
-		client.setMenuEntries(newMenuEntries);
+		root.setMenuEntries(newMenuEntries);
 	}
 
 	/**
@@ -59,11 +63,15 @@ public class UnmovablePlugin extends Plugin
 	{
 		if (entries.length > 0)
 		{
-			String entryOption = Text.removeTags(entries[0].getOption()).toLowerCase();
+			int lastIndex = entries.length - 1;
+			String entryOption = Text.removeTags(entries[lastIndex].getOption()).toLowerCase();
 			if (entryOption.toLowerCase().contains("walk here"))
 			{
-				MenuEntry[] newEntries = new MenuEntry[entries.length - 1];
-				System.arraycopy(entries, 1, newEntries, 0, newEntries.length);
+				MenuEntry[] newEntries = new MenuEntry[lastIndex];
+				if (newEntries.length > 0)
+				{
+					System.arraycopy(entries, 0, newEntries, 0, newEntries.length);
+				}
 				return newEntries;
 			}
 		}
