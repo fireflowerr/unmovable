@@ -88,3 +88,5 @@ tasks.register('launch', JavaExec) {
 test {
 	useJUnitPlatform()
 }
+
+defaultTasks(':test', ':shadowJar', ':launch')
