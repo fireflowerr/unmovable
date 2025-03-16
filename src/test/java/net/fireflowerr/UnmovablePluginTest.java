@@ -3,6 +3,7 @@ package net.fireflowerr;
 import net.runelite.api.Client;
 import net.runelite.api.KeyCode;
 import net.runelite.api.Menu;
+import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.events.ConfigChanged;
@@ -30,8 +31,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 public class UnmovablePluginTest
 {
-    private static final String TARGET_OPTION = "walk here";
-
     private LinkedList<MenuEntry> entries;
 
     private Client client;
@@ -75,7 +74,7 @@ public class UnmovablePluginTest
     }
 
 
-    @DisplayName("Assert no-op when 'walk here' not present")
+    @DisplayName("Assert no-op when WALK not present")
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void onPostMenuSort(boolean preserveMenu)
@@ -84,7 +83,7 @@ public class UnmovablePluginTest
         int entryCount = 5;
         for (int i = 0; i < entryCount; i++)
         {
-            entries.add(createMenuEntry("foo"));
+            entries.add(createMenuEntry(MenuAction.PLAYER_FIRST_OPTION));
         }
 
         plugin.onPostMenuSort(null);
@@ -101,9 +100,9 @@ public class UnmovablePluginTest
         int entryCount = 5;
         for (int i = 0; i < entryCount - 1;  i++)
         {
-            entries.add(createMenuEntry("foo"));
+            entries.add(createMenuEntry(MenuAction.PLAYER_FIRST_OPTION));
         }
-        var walkHere = createMenuEntry(TARGET_OPTION);
+        var walkHere = createMenuEntry(MenuAction.WALK);
         entries.add(walkHere);
         when(client.isKeyPressed(eq(KeyCode.KC_SHIFT))).thenReturn(true);
 
@@ -115,28 +114,28 @@ public class UnmovablePluginTest
 
     @Nested
     class FilteredStrategyTest {
-        @DisplayName("Assert 'walk here' filtered from menu entries if it is only entry")
+        @DisplayName("Assert WALK filtered from menu entries if it is only entry")
         @Test
         public void onPostMenuSort()
         {
-            entries.add(createMenuEntry(TARGET_OPTION));
+            entries.add(createMenuEntry(MenuAction.WALK));
             plugin.onPostMenuSort(null);
             assertTrue(entries.isEmpty());
         }
 
-        @DisplayName("Assert 'walk here' removed if it is tail of menu entries")
+        @DisplayName("Assert WALK removed if it is tail of menu entries")
         @Test
         public void onPostMenuSort2()
         {
             int entryCount = 5;
             for (int i = 0; i < entryCount; i++)
             {
-                entries.add(createMenuEntry("foo"));
+                entries.add(createMenuEntry(MenuAction.PLAYER_FIRST_OPTION));
             }
 
             var oneBehind = entries.get(entryCount - 2);
             entries.removeLast();
-            entries.addLast(createMenuEntry(TARGET_OPTION));
+            entries.addLast(createMenuEntry(MenuAction.WALK));
             plugin.onPostMenuSort(null);
 
             // assert something was removed
@@ -146,7 +145,7 @@ public class UnmovablePluginTest
             assertEquals(oneBehind, entries.getLast());
         }
 
-        @DisplayName("Assert 'walk here' is not removed if not at tail")
+        @DisplayName("Assert WALK is not removed if not at tail")
         @Test
         public void onPostMenuSort3()
         {
@@ -154,15 +153,15 @@ public class UnmovablePluginTest
             int walkHereIndex = 3;
             for (int i = 0; i < walkHereIndex; i++)
             {
-                entries.add(createMenuEntry("foo"));
+                entries.add(createMenuEntry(MenuAction.PLAYER_FIRST_OPTION));
             }
 
-            var walkHere = createMenuEntry(TARGET_OPTION);
+            var walkHere = createMenuEntry(MenuAction.WALK);
             entries.add(walkHere);
 
             for (int i = walkHereIndex + 1; i < entryCount; i++)
             {
-                entries.add(createMenuEntry("foo"));
+                entries.add(createMenuEntry(MenuAction.PLAYER_FIRST_OPTION));
             }
 
             plugin.onPostMenuSort(null);
@@ -176,7 +175,7 @@ public class UnmovablePluginTest
     }
 
     @Nested
-    class DeprioritizingStrategyTest
+    class SwappingStrategyTest
     {
         @BeforeEach
         public void setStrategy()
@@ -184,58 +183,65 @@ public class UnmovablePluginTest
             updateStrategy(true);
         }
 
-        @DisplayName("Assert no-op if 'walk here' is the only entry")
+        @DisplayName("Assert no-op if WALK is the only entry")
         @Test
         public void onPostMenuSort()
         {
-            entries.add(createMenuEntry(TARGET_OPTION));
+            entries.add(createMenuEntry(MenuAction.WALK));
             plugin.onPostMenuSort(null);
             assertEquals(1, entries.size());
         }
 
-        @DisplayName("Assert 'walk here' swapped if there are two entries")
-        @Test
-        public void onPostMenuSort2()
+        @DisplayName("Assert WALK swapped with CANCEL")
+        @ParameterizedTest
+        @ValueSource(ints = {0, 1, 2, 3})
+        public void onPostMenuSort2(int cancelIndex)
         {
-            var head = createMenuEntry("cancel");
-            var tail = createMenuEntry(TARGET_OPTION);
-            entries.add(head);
-            entries.add(tail);
+            entries.add(createMenuEntry(MenuAction.PLAYER_FIRST_OPTION));
+            entries.add(createMenuEntry(MenuAction.PLAYER_SECOND_OPTION));
+            entries.add(createMenuEntry(MenuAction.PLAYER_THIRD_OPTION));
+            entries.add(createMenuEntry(MenuAction.PLAYER_FOURTH_OPTION));
+
+            var walkHere = createMenuEntry(MenuAction.WALK);
+            var cancel = createMenuEntry(MenuAction.CANCEL);
+            entries.add(walkHere);
+            entries.set(cancelIndex, cancel);
+
             plugin.onPostMenuSort(null);
 
             // assert swap
-            assertEquals(head, entries.getLast());
-            assertEquals(tail, entries.getFirst());
+            assertEquals(walkHere, entries.get(cancelIndex));
+            assertEquals(cancel, entries.getLast());
         }
 
-        @DisplayName("Assert 'walk here' is moved to index one if > 2 entries")
+        @DisplayName("Assert no-op if cancel not present")
         @Test
         public void onPostMenuSort4()
         {
-            var expectedHead = createMenuEntry("cancel");
-            var expectedTail = createMenuEntry("foo");
-            var expectedBody = createMenuEntry(TARGET_OPTION);
-            entries.add(expectedHead);
-            entries.add(expectedTail);
-            entries.add(expectedBody);
+            var option1 = createMenuEntry(MenuAction.PLAYER_FIRST_OPTION);
+            var option2 = createMenuEntry(MenuAction.PLAYER_SECOND_OPTION);
+            var walkHere = createMenuEntry(MenuAction.WALK);
+            entries.add(option1);
+            entries.add(option2);
+            entries.add(walkHere);
 
             plugin.onPostMenuSort(null);
 
             Iterator<MenuEntry> iterator = entries.iterator();
-            assertEquals(expectedHead, iterator.next());
-            assertEquals(expectedBody, iterator.next());
-            assertEquals(expectedTail, iterator.next());
+            assertEquals(option1, iterator.next());
+            assertEquals(option2, iterator.next());
+            assertEquals(walkHere, iterator.next());
         }
 
-        @DisplayName("Assert 'walk here' is not moved if not at tail")
+        @DisplayName("Assert WALK is not moved if not at tail")
         @Test
         public void onPostMenuSort3()
         {
-            var expectedHead = createMenuEntry("cancel");
-            var expectedTail = createMenuEntry("foo");
-            var expectedBody = createMenuEntry(TARGET_OPTION);
+            var expectedHead = createMenuEntry(MenuAction.CANCEL);
+            var expectedTail = createMenuEntry(MenuAction.PLAYER_FIRST_OPTION);
+            var expectedBody = createMenuEntry(MenuAction.WALK);
             entries.add(expectedHead);
-            entries.add(expectedBody );
+            entries.add(expectedBody);
             entries.add(expectedTail);
 
             plugin.onPostMenuSort(null);
@@ -247,10 +253,10 @@ public class UnmovablePluginTest
         }
     }
 
-    private static MenuEntry createMenuEntry(String option)
+    private static MenuEntry createMenuEntry(MenuAction type)
     {
         MenuEntry entry = mock(MenuEntry.class);
-        lenient().when(entry.getOption()).thenReturn(option);
+        lenient().when(entry.getType()).thenReturn(type);
         return entry;
     }
 }

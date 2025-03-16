@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.KeyCode;
 import net.runelite.api.Menu;
+import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.events.PostMenuSort;
 import net.runelite.client.config.ConfigManager;
@@ -12,7 +13,6 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.util.Text;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -26,13 +26,11 @@ import javax.inject.Inject;
 	tags = {"swapper", "kiting", "walk", "misclick"}
 )
 public class UnmovablePlugin extends Plugin {
-	private static final String TARGET_OPTION = "walk here";
-
 	private Client client;
 	private UnmovableConfig config;
 	private Strategy strategy;
 
-	private enum Strategy {FILTER, DEPRIORITIZE}
+	private enum Strategy {FILTER, SWAP}
 
 	@Inject
 	public void setClient(Client client) {
@@ -92,7 +90,7 @@ public class UnmovablePlugin extends Plugin {
 	 */
 	private void updateStrategy()
 	{
-		this.strategy = config.preserveMenu() ? Strategy.DEPRIORITIZE : Strategy.FILTER;
+		this.strategy = config.preserveMenu() ? Strategy.SWAP : Strategy.FILTER;
 	}
 
 	/**
@@ -109,38 +107,43 @@ public class UnmovablePlugin extends Plugin {
 			return null;
 		}
 
-		return Strategy.FILTER == strategy ? removeWalk(menuEntries) : deprioritizeWalk(menuEntries);
+		return Strategy.FILTER == strategy ? removeWalk(menuEntries) : swapWithCancel(menuEntries);
 	}
 
 	/**
-	 * Deprioritizes the 'walk here' option, returning a new array.
+	 * Swaps 'walk here' option with 'cancel', returning a new array.
 	 *
 	 * @param entries entries
-	 * @return new entries
+	 * @return new entries or null if cancel not present
 	 */
 	@Nullable
-	private MenuEntry[] deprioritizeWalk(MenuEntry[] entries)
+	private MenuEntry[] swapWithCancel(MenuEntry[] entries)
 	{
-		// if it is the only item, deprioritizing does nothing
+		// if it is the only item, swapping does nothing
 		if (entries.length == 1)
 		{
 			return null;
 		}
 
-		MenuEntry[] newEntries = new MenuEntry[entries.length];
-		// if there are two items, swap them
-		if (entries.length == 2)
+		int cancelIndex = -1;
+		for (int i = 0; i < entries.length; i++)
 		{
-			newEntries[0] = entries[1];
-			newEntries[1] = entries[0];
-			return newEntries;
+			if (MenuAction.CANCEL == entries[i].getType())
+			{
+				cancelIndex = i;
+				break;
+			}
 		}
 
-		// if there are three or more items, give second-lowest priority (normally directly below cancel)
-		newEntries[0] = entries[0];
-		newEntries[1] = entries[entries.length - 1];
-		System.arraycopy(entries, 0, newEntries, 2, entries.length - 2);
-		newEntries[entries.length - 1] = entries[1];
+		if (cancelIndex == -1)
+		{
+			return null;
+		}
+
+		MenuEntry[] newEntries = new MenuEntry[entries.length];
+		System.arraycopy(entries, 0, newEntries, 0, entries.length - 1);
+		newEntries[entries.length - 1] = entries[cancelIndex];
+		newEntries[cancelIndex] = entries[entries.length - 1];
 		return newEntries;
 	}
 
@@ -174,9 +177,7 @@ public class UnmovablePlugin extends Plugin {
 			return false;
 		}
 
-		int lastIndex = entries.length - 1;
-		String entryOption = Text.removeTags(entries[lastIndex].getOption()).toLowerCase();
-		return entryOption.toLowerCase().contains(TARGET_OPTION);
+		return MenuAction.WALK == entries[entries.length -1].getType();
 	}
 
 	/**

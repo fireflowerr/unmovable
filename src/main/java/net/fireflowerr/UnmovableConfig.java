@@ -11,7 +11,7 @@ public interface UnmovableConfig extends Config {
     @ConfigItem(
             keyName = "preserveMenu",
             name = "Preserve menu",
-            description = "When enabled, deprioritizes 'walk here' instead of removing it")
+            description = "When enabled, swaps 'walk here' with 'cancel' instead of removing it")
     default boolean preserveMenu() {
         return false;
     }
